@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for miao on 2026-04-11T18:32:26Z
+# fly.toml app configuration file generated for miao on 2026-04-11T19:07:39Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 app = 'miao'
-primary_region = 'ams'
+primary_region = 'sjc'
 
 [build]
 
