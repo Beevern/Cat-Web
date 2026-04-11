@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hi! I'm Miao!</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #F4EFE6;
+      --brown-dk: #5C3D1E;
+      --brown-md: #8B5E30;
+      --brown-lt: #C4975A;
+      --warm-wht: #FDFAF5;
+      --text:     #2A1A0A;
+      --muted:    #9A8570;
+      --border:   #E2D5C0;
+      --card:     #FFFFFF;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.9rem 1.75rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    nav .sep { color: var(--brown-lt); font-size: 1rem; user-select: none; }
+
+    nav button {
+      background: none;
+      border: none;
+      font-size: 0.97rem;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0.55rem 0.85rem;   /* larger tap target for mobile */
+      border-radius: 6px;
+      transition: color 0.18s;
+      letter-spacing: 0.01em;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    nav button.active { color: var(--brown-dk); font-weight: 700; }
+    nav button:hover  { color: var(--brown-md); }
+
+    /* ── Pages ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Hero photo ── */
+    .hero {
+      position: relative;
+      width: 100%;
+      max-height: 540px;
+      overflow: hidden;
+    }
+
+    .hero img {
+      width: 100%;
+      height: min(540px, 62vh);   /* never taller than 62% of the screen on mobile */
+      object-fit: cover;
+      object-position: center 20%;
+      display: block;
+    }
+
+    /* bottom gradient fade into page bg — starts late so most of photo shows */
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 30%;
+      background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
+      pointer-events: none;
+    }
+
+    /* ── Hi title ── */
+    .hero-title {
+      text-align: center;
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: var(--brown-dk);
+      letter-spacing: -0.5px;
+      padding: 0.5rem 1rem 2rem;
+      margin-top: -2.5rem;   /* pulls up into the fade zone */
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Main layout ── */
+    .main-content {
+      max-width: 580px;
+      margin: 0 auto;
+      padding: 0 1.1rem 5rem;
+    }
+
+    /* ── Upload card ── */
+    .upload-card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 1.75rem;
+      box-shadow: 0 4px 24px rgba(90,50,10,0.09);
+      margin-bottom: 2.5rem;
+      border: 1px solid var(--border);
+    }
+
+    .upload-prompt {
+      text-align: center;
+      margin-bottom: 1.4rem;
+    }
+
+    .upload-prompt .headline {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--brown-dk);
+    }
+
+    .upload-prompt .sub {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--brown-lt);
+      border-radius: 14px;
+      padding: 1.6rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      color: var(--brown-md);
+      background: #FBF7F0;
+      transition: background 0.2s, border-color 0.2s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      background: #F5ECD8;
+      border-color: var(--brown-md);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0;
+      cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .drop-zone .dz-icon { font-size: 1.75rem; display: block; margin-bottom: 0.4rem; }
+    .drop-zone strong  { font-size: 0.9rem; display: block; }
+    .drop-zone small   { display: block; margin-top: 0.25rem; color: #C0A885; font-size: 0.78rem; }
+
+    #preview-wrap { margin-top: 1rem; display: none; }
+    #preview-wrap img {
+      width: 100%; max-height: 240px; object-fit: cover;
+      border-radius: 12px; display: block;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 1rem 0 0.35rem;
+    }
+
+    .upload-card input[type="text"],
+    .upload-card textarea {
+      display: block;
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      border: 1.5px solid var(--border);
+      border-radius: 11px;
+      font-size: 1rem;            /* must be ≥16px to prevent iOS zoom on focus */
+      font-family: inherit;
+      background: var(--warm-wht);
+      outline: none;
+      color: var(--text);
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+
+    .upload-card input[type="text"]:focus,
+    .upload-card textarea:focus {
+      border-color: var(--brown-md);
+      box-shadow: 0 0 0 3px rgba(139,94,48,0.12);
+    }
+
+    .upload-card textarea { resize: vertical; }
+
+    .btn-submit {
+      margin-top: 1.25rem;
+      width: 100%;
+      padding: 0.95rem;           /* ~52px tall — comfortable thumb target */
+      background: var(--brown-dk);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-submit:hover  { background: var(--brown-md); }
+    .btn-submit:active { transform: scale(0.98); }
+
+    /* ── Feed heading ── */
+    .feed-heading {
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 1.25rem;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── Feed cards ── */
+    .post-card {
+      background: var(--card);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 3px 18px rgba(90,50,10,0.08);
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border);
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem 1.1rem 0.75rem;
+    }
+
+    .post-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--brown-dk);
+    }
+
+    .post-date {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .post-card img {
+      width: 100%;
+      max-height: 380px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .post-caption {
+      padding: 0.8rem 1.1rem 1rem;
+      font-size: 0.92rem;
+      color: #5A4030;
+      line-height: 1.55;
+    }
+
+    .post-caption:empty { display: none; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      color: #C8B89A;
+      padding: 3rem 1rem;
+    }
+
+    .empty-state .es-icon { font-size: 2.8rem; display: block; margin-bottom: 0.6rem; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ── Contact ── */
+    .contact-wrap {
+      max-width: 440px;
+      margin: 3rem auto;
+      padding: 0 1.1rem;
+    }
+
+    .contact-card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 2rem 2.25rem;
+      box-shadow: 0 4px 24px rgba(90,50,10,0.09);
+      border: 1px solid var(--border);
+    }
+
+    .contact-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #EDE3D5;
+      font-size: 0.96rem;
+    }
+
+    .contact-row:last-child { border-bottom: none; }
+
+    .contact-row .label {
+      font-weight: 700;
+      color: var(--brown-md);
+      min-width: 90px;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .contact-row a {
+      color: var(--brown-dk);
+      text-decoration: none;
+    }
+
+    .contact-row a:hover { text-decoration: underline; }
+
+    /* ── Lost banner ── */
+    #lost-banner {
+      display: none;
+      background: #C0392B;
+      color: white;
+      padding: 0.85rem 1.25rem;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: 600;
+      line-height: 1.5;
+      position: relative;
+      z-index: 30;
+      animation: pulseBg 2.5s ease-in-out infinite;
+    }
+
+    #lost-banner.visible { display: block; }
+
+    #lost-banner strong { font-size: 1rem; display: block; margin-bottom: 0.2rem; }
+    #lost-banner .banner-detail { font-weight: 400; font-size: 0.85rem; opacity: 0.92; }
+
+    @keyframes pulseBg {
+      0%, 100% { background: #C0392B; }
+      50%       { background: #E74C3C; }
+    }
+
+    /* ── Lost report button (left of nav) ── */
+    #lost-report-btn {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0.4rem 0.7rem;
+      letter-spacing: 0.02em;
+      transition: all 0.18s;
+      -webkit-tap-highlight-color: transparent;
+      margin-right: auto;
+    }
+
+    #lost-report-btn.is-lost {
+      color: #C0392B;
+      border-color: #C0392B;
+      background: #FFF0EE;
+    }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(42,26,10,0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 8px 40px rgba(42,26,10,0.22);
+      animation: modalIn 0.22s ease;
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal h2 {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--brown-dk);
+      margin-bottom: 1.25rem;
+    }
+
+    .modal h2.danger { color: #C0392B; }
+
+    .modal .modal-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 1rem 0 0.35rem;
+    }
+
+    .modal input[type="text"],
+    .modal input[type="password"],
+    .modal input[type="datetime-local"] {
+      display: block;
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      border: 1.5px solid var(--border);
+      border-radius: 11px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--warm-wht);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+
+    .modal input:focus {
+      border-color: var(--brown-md);
+      box-shadow: 0 0 0 3px rgba(139,94,48,0.12);
+    }
+
+    .modal-error {
+      font-size: 0.83rem;
+      color: #C0392B;
+      margin-top: 0.6rem;
+      min-height: 1.2rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.4rem;
+    }
+
+    .modal-actions button {
+      flex: 1;
+      padding: 0.8rem;
+      border: none;
+      border-radius: 11px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .modal-actions button:active { transform: scale(0.97); }
+
+    .btn-cancel {
+      background: #F0E8DC;
+      color: var(--brown-dk);
+    }
+
+    .btn-confirm {
+      background: var(--brown-dk);
+      color: white;
+    }
+
+    .btn-confirm.danger { background: #C0392B; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--brown-dk);
+      color: #FDF8F2;
+      padding: 0.7rem 1.5rem;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 999;
+      max-width: calc(100vw - 2rem);  /* never overflows on narrow screens */
+      text-align: center;
+    }
+
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- Lost banner (shown when Miao is missing) -->
+<div id="lost-banner" role="alert" aria-live="polite">
+  <strong>⚠️ Miao is missing!</strong>
+  <span class="banner-detail" id="banner-detail"></span>
+</div>
+
+<!-- NAV -->
+<nav>
+  <button id="lost-report-btn" onclick="openLostModal()" aria-label="Lost report">🔒 Lost Report</button>
+  <button class="active" onclick="showPage('home', this)">Home</button>
+  <span class="sep">|</span>
+  <button onclick="showPage('contact', this)">Contact</button>
+</nav>
+
+<!-- Lost report modal -->
+<div class="modal-backdrop" id="modal-backdrop" onclick="handleBackdropClick(event)">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2 id="modal-title">Report Miao as Lost</h2>
+
+    <div id="lost-fields">
+      <span class="modal-label">Last time seen</span>
+      <input type="datetime-local" id="input-last-seen" />
+
+      <span class="modal-label">Last place seen</span>
+      <input type="text" id="input-last-place" placeholder="e.g. Park Street near the café" />
+    </div>
+
+    <span class="modal-label">Password</span>
+    <input type="password" id="input-password" placeholder="Enter password" />
+
+    <p class="modal-error" id="modal-error"></p>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeLostModal()">Cancel</button>
+      <button class="btn-confirm" id="modal-confirm-btn" onclick="submitLostReport()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HOME PAGE ══ -->
+<div id="home" class="page active">
+
+  <!-- Hero photo with bottom fade -->
+  <div class="hero">
+    <img src="miao.jpg" alt="Miao the cat" />
+  </div>
+
+  <h1 class="hero-title">Hi! I'm Miao!</h1>
+
+  <div class="main-content">
+
+    <!-- Upload card -->
+    <div class="upload-card">
+      <div class="upload-prompt">
+        <p class="headline">Have you seen me?</p>
+        <p class="sub">Upload some photos here!</p>
+      </div>
+
+      <form id="post-form" onsubmit="submitPost(event)">
+
+        <div class="drop-zone" id="drop-zone">
+          <span class="dz-icon">🐾</span>
+          <strong id="dz-label">Tap to add a photo</strong>
+          <small>JPG · PNG · GIF · WEBP</small>
+          <input type="file" id="photo-input" accept="image/*" onchange="previewPhoto(this)" required />
+        </div>
+
+        <div id="preview-wrap">
+          <img id="preview-img" src="" alt="Preview" />
+        </div>
+
+        <span class="field-label">Your name</span>
+        <input type="text" id="poster-name" placeholder="e.g. Sarah" required />
+
+        <span class="field-label">+ Caption</span>
+        <textarea id="caption" rows="2" placeholder="Where did you spot Miao?"></textarea>
+
+        <button type="submit" class="btn-submit">Post Encounter</button>
+      </form>
+    </div>
+
+    <!-- Feed -->
+    <p class="feed-heading">Here are some encounters with locals&nbsp;:)</p>
+    <div id="feed"></div>
+
+  </div>
+</div>
+
+<!-- ══ CONTACT PAGE ══ -->
+<div id="contact" class="page">
+  <div class="contact-wrap">
+    <div class="contact-card">
+      <div class="contact-row">
+        <span class="label">Name</span>
+        <span>Miao</span>
+      </div>
+      <div class="contact-row">
+        <span class="label">Address</span>
+        <span>&lt;Placeholder&gt;</span>
+      </div>
+      <div class="contact-row">
+        <span class="label">Phone</span>
+        <a href="tel:">&lt;Placeholder&gt;</a>
+      </div>
+      <div class="contact-row">
+        <span class="label">Instagram</span>
+        <a href="#" target="_blank">&lt;Placeholder&gt;</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Lost status ──────────────────────────────────────────────────────────────
+  let currentStatus = { lost: false };
+
+  async function loadStatus() {
+    try {
+      const res = await fetch('/api/status');
+      currentStatus = await res.json();
+      applyStatus(currentStatus);
+    } catch { /* server may not be up yet */ }
+  }
+
+  function applyStatus(status) {
+    const banner = document.getElementById('lost-banner');
+    const btn    = document.getElementById('lost-report-btn');
+    if (status.lost) {
+      banner.classList.add('visible');
+      btn.classList.add('is-lost');
+      btn.textContent = '🔴 Lost Report';
+      // Build detail line
+      const parts = [];
+      if (status.lastPlace) parts.push(`Last seen at ${status.lastPlace}`);
+      if (status.lastSeen)  parts.push(formatDateTime(status.lastSeen));
+      document.getElementById('banner-detail').textContent =
+        parts.length ? parts.join(' · ') + ' — If you see Miao, please contact us!' : 'If you see Miao, please contact us!';
+    } else {
+      banner.classList.remove('visible');
+      btn.classList.remove('is-lost');
+      btn.textContent = '🔒 Lost Report';
+    }
+  }
+
+  function formatDateTime(iso) {
+    try {
+      return new Date(iso).toLocaleString('en-US', {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch { return iso; }
+  }
+
+  function openLostModal() {
+    const isLost = currentStatus.lost;
+    document.getElementById('modal-title').textContent   = isLost ? 'Mark Miao as Found' : 'Report Miao as Lost';
+    document.getElementById('modal-title').className     = isLost ? 'danger' : '';
+    document.getElementById('modal-confirm-btn').textContent = isLost ? 'Mark as Found' : 'Report as Lost';
+    document.getElementById('modal-confirm-btn').className   = isLost ? 'btn-confirm danger' : 'btn-confirm';
+    document.getElementById('lost-fields').style.display     = isLost ? 'none' : 'block';
+    document.getElementById('modal-error').textContent       = '';
+    document.getElementById('input-password').value          = '';
+
+    // Pre-fill datetime to now when opening
+    if (!isLost) {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // local time
+      document.getElementById('input-last-seen').value = now.toISOString().slice(0, 16);
+      document.getElementById('input-last-place').value = '';
+    }
+
+    document.getElementById('modal-backdrop').classList.add('open');
+    setTimeout(() => document.getElementById('input-password').focus(), 100);
+  }
+
+  function closeLostModal() {
+    document.getElementById('modal-backdrop').classList.remove('open');
+  }
+
+  function handleBackdropClick(e) {
+    if (e.target === document.getElementById('modal-backdrop')) closeLostModal();
+  }
+
+  async function submitLostReport() {
+    const password  = document.getElementById('input-password').value;
+    const isLost    = currentStatus.lost;
+    const errorEl   = document.getElementById('modal-error');
+    const confirmBtn = document.getElementById('modal-confirm-btn');
+
+    if (!password) { errorEl.textContent = 'Password is required.'; return; }
+
+    const body = { password, lost: !isLost };
+    if (!isLost) {
+      body.lastSeen  = document.getElementById('input-last-seen').value;
+      body.lastPlace = document.getElementById('input-last-place').value.trim();
+    }
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Saving…';
+    errorEl.textContent = '';
+
+    try {
+      const res  = await fetch('/api/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed.');
+      currentStatus = data;
+      applyStatus(data);
+      closeLostModal();
+      showToast(data.lost ? '⚠️ Lost report activated.' : '✓ Miao marked as found!');
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = isLost ? 'Mark as Found' : 'Report as Lost';
+    }
+  }
+
+  // ── Tab nav ──
+  function showPage(id, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // ── Photo preview ──
+  let selectedFile = null;
+
+  function previewPhoto(input) {
+    const file = input.files[0];
+    if (!file) return;
+    selectedFile = file;
+    const url = URL.createObjectURL(file);
+    document.getElementById('preview-img').src = url;
+    document.getElementById('preview-wrap').style.display = 'block';
+  }
+
+  // Drag & drop
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      selectedFile = file;
+      const url = URL.createObjectURL(file);
+      document.getElementById('preview-img').src = url;
+      document.getElementById('preview-wrap').style.display = 'block';
+    }
+  });
+
+  // ── Submit ──
+  async function submitPost(e) {
+    e.preventDefault();
+    if (!selectedFile) { showToast('Please select a photo.'); return; }
+
+    const btn = e.target.querySelector('.btn-submit');
+    btn.disabled = true;
+    btn.textContent = 'Posting…';
+
+    const formData = new FormData();
+    formData.append('photo',   selectedFile);
+    formData.append('name',    document.getElementById('poster-name').value.trim());
+    formData.append('caption', document.getElementById('caption').value.trim());
+
+    try {
+      const res = await fetch('/api/encounters', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
+      resetForm();
+      showToast('Thanks for sharing! 🐱');
+      loadFeed();
+    } catch (err) {
+      showToast('Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Post Encounter';
+    }
+  }
+
+  function resetForm() {
+    document.getElementById('post-form').reset();
+    document.getElementById('preview-wrap').style.display = 'none';
+    document.getElementById('preview-img').src = '';
+    selectedFile = null;
+  }
+
+  // ── Load & render feed ──
+  async function loadFeed() {
+    const feed = document.getElementById('feed');
+    try {
+      const res  = await fetch('/api/encounters');
+      const data = await res.json();
+      renderFeed(data);
+    } catch {
+      feed.innerHTML = `<div class="empty-state"><span class="es-icon">⚠️</span><p>Could not load encounters.</p></div>`;
+    }
+  }
+
+  function renderFeed(encounters) {
+    const feed = document.getElementById('feed');
+    if (!encounters.length) {
+      feed.innerHTML = `
+        <div class="empty-state">
+          <span class="es-icon">🐾</span>
+          <p>No encounters yet — be the first!</p>
+        </div>`;
+      return;
+    }
+    feed.innerHTML = encounters.map(p => {
+      const dt  = new Date(p.created_at);
+      const date = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const time = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="post-card">
+          <div class="post-header">
+            <span class="post-name">${esc(p.name)}</span>
+            <span class="post-date">${date} · ${time}</span>
+          </div>
+          <img src="/uploads/${esc(p.filename)}" alt="Cat encounter" loading="lazy" />
+          <div class="post-caption">${esc(p.caption)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Toast ──
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // ── On desktop, update drop zone label to mention dragging ──
+  if (!('ontouchstart' in window)) {
+    document.getElementById('dz-label').textContent = 'Click or drag a photo here';
+  }
+
+  // ── Init ──
+  loadStatus();
+  loadFeed();
+</script>
+</body>
+</html>
