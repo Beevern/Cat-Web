@@ -265,8 +265,7 @@
 
     .post-card img {
       width: 100%;
-      max-height: 380px;
-      object-fit: cover;
+      height: auto;        /* native aspect ratio, no crop */
       display: block;
     }
 
@@ -356,8 +355,9 @@
       50%       { background: #E74C3C; }
     }
 
-    /* ── Lost report button (left of nav) ── */
+    /* ── Lost report button (left of nav, admin only) ── */
     #lost-report-btn {
+      display: none;          /* hidden until admin mode is active */
       background: none;
       border: 1.5px solid var(--border);
       border-radius: 8px;
@@ -486,6 +486,45 @@
 
     .btn-confirm.danger { background: #C0392B; }
 
+    /* ── Admin nav button ── */
+    #admin-btn {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0.4rem 0.7rem;
+      letter-spacing: 0.02em;
+      transition: all 0.18s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #admin-btn.admin-active {
+      color: #2E7D32;
+      border-color: #4CAF50;
+      background: #F1FBF1;
+    }
+
+    /* ── Delete button on post cards ── */
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #C0392B;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 0.2rem 0.4rem;
+      border-radius: 6px;
+      line-height: 1;
+      opacity: 0.55;
+      transition: opacity 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      flex-shrink: 0;
+    }
+
+    .delete-btn:hover { opacity: 1; background: #FFF0EE; }
+
     /* ── Toast ── */
     .toast {
       position: fixed;
@@ -523,7 +562,24 @@
   <button class="active" onclick="showPage('home', this)">Home</button>
   <span class="sep">|</span>
   <button onclick="showPage('contact', this)">Contact</button>
+  <span class="sep">|</span>
+  <button id="admin-btn" onclick="handleAdminBtn()">Admin</button>
 </nav>
+
+<!-- Admin login modal -->
+<div class="modal-backdrop" id="admin-modal-backdrop" onclick="handleAdminBackdropClick(event)">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2>Admin Access</h2>
+    <span class="modal-label">Password</span>
+    <input type="password" id="admin-password-input" placeholder="Enter password"
+           onkeydown="if(event.key==='Enter') submitAdminLogin()" />
+    <p class="modal-error" id="admin-modal-error"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAdminModal()">Cancel</button>
+      <button class="btn-confirm" onclick="submitAdminLogin()">Unlock</button>
+    </div>
+  </div>
+</div>
 
 <!-- Lost report modal -->
 <div class="modal-backdrop" id="modal-backdrop" onclick="handleBackdropClick(event)">
@@ -537,9 +593,6 @@
       <span class="modal-label">Last place seen</span>
       <input type="text" id="input-last-place" placeholder="e.g. Park Street near the café" />
     </div>
-
-    <span class="modal-label">Password</span>
-    <input type="password" id="input-password" placeholder="Enter password" />
 
     <p class="modal-error" id="modal-error"></p>
 
@@ -582,18 +635,18 @@
           <img id="preview-img" src="" alt="Preview" />
         </div>
 
-        <span class="field-label">Your name</span>
-        <input type="text" id="poster-name" placeholder="e.g. Sarah" required />
+        <span class="field-label">Post as</span>
+        <input type="text" id="poster-name" placeholder="e.g. MiaoFan" required />
 
         <span class="field-label">+ Caption</span>
-        <textarea id="caption" rows="2" placeholder="Where did you spot Miao?"></textarea>
+        <textarea id="caption" rows="2" placeholder="Where did you spot Miao? What was he doing?"></textarea>
 
         <button type="submit" class="btn-submit">Post Encounter</button>
       </form>
     </div>
 
     <!-- Feed -->
-    <p class="feed-heading">Here are some encounters with locals&nbsp;:)</p>
+    <p class="feed-heading">See what others have been posting of Miao &nbsp;:)</p>
     <div id="feed"></div>
 
   </div>
@@ -626,6 +679,68 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  // ── Admin mode (lives in sessionStorage — cleared on tab close) ─────────────
+  let adminMode = sessionStorage.getItem('adminMode') === 'true';
+
+  function handleAdminBtn() {
+    if (adminMode) {
+      exitAdminMode();
+    } else {
+      openAdminModal();
+    }
+  }
+
+  function openAdminModal() {
+    document.getElementById('admin-password-input').value = '';
+    document.getElementById('admin-modal-error').textContent = '';
+    document.getElementById('admin-modal-backdrop').classList.add('open');
+    setTimeout(() => document.getElementById('admin-password-input').focus(), 100);
+  }
+
+  function closeAdminModal() {
+    document.getElementById('admin-modal-backdrop').classList.remove('open');
+  }
+
+  function handleAdminBackdropClick(e) {
+    if (e.target === document.getElementById('admin-modal-backdrop')) closeAdminModal();
+  }
+
+  function submitAdminLogin() {
+    const pw = document.getElementById('admin-password-input').value;
+    if (pw !== 'miao') {
+      document.getElementById('admin-modal-error').textContent = 'Incorrect password.';
+      return;
+    }
+    adminMode = true;
+    sessionStorage.setItem('adminMode', 'true');
+    closeAdminModal();
+    applyAdminMode();
+    showToast('Admin mode enabled.');
+  }
+
+  function exitAdminMode() {
+    adminMode = false;
+    sessionStorage.removeItem('adminMode');
+    applyAdminMode();
+    showToast('Admin mode disabled.');
+  }
+
+  function applyAdminMode() {
+    const adminBtn     = document.getElementById('admin-btn');
+    const lostReportBtn = document.getElementById('lost-report-btn');
+    if (adminMode) {
+      adminBtn.textContent = 'Admin ✓';
+      adminBtn.classList.add('admin-active');
+      lostReportBtn.style.display = 'inline-flex';
+    } else {
+      adminBtn.textContent = 'Admin';
+      adminBtn.classList.remove('admin-active');
+      lostReportBtn.style.display = 'none';
+    }
+    // Re-render feed so delete buttons appear/disappear
+    loadFeed();
+  }
+
   // ── Lost status ──────────────────────────────────────────────────────────────
   let currentStatus = { lost: false };
 
@@ -667,25 +782,26 @@
   }
 
   function openLostModal() {
+    if (!adminMode) {
+      showToast('Enable admin mode first.');
+      return;
+    }
     const isLost = currentStatus.lost;
-    document.getElementById('modal-title').textContent   = isLost ? 'Mark Miao as Found' : 'Report Miao as Lost';
-    document.getElementById('modal-title').className     = isLost ? 'danger' : '';
-    document.getElementById('modal-confirm-btn').textContent = isLost ? 'Mark as Found' : 'Report as Lost';
-    document.getElementById('modal-confirm-btn').className   = isLost ? 'btn-confirm danger' : 'btn-confirm';
-    document.getElementById('lost-fields').style.display     = isLost ? 'none' : 'block';
-    document.getElementById('modal-error').textContent       = '';
-    document.getElementById('input-password').value          = '';
+    document.getElementById('modal-title').textContent        = isLost ? 'Mark Miao as Found' : 'Report Miao as Lost';
+    document.getElementById('modal-title').className          = isLost ? 'danger' : '';
+    document.getElementById('modal-confirm-btn').textContent  = isLost ? 'Mark as Found' : 'Report as Lost';
+    document.getElementById('modal-confirm-btn').className    = isLost ? 'btn-confirm danger' : 'btn-confirm';
+    document.getElementById('lost-fields').style.display      = isLost ? 'none' : 'block';
+    document.getElementById('modal-error').textContent        = '';
 
-    // Pre-fill datetime to now when opening
     if (!isLost) {
       const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // local time
-      document.getElementById('input-last-seen').value = now.toISOString().slice(0, 16);
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('input-last-seen').value  = now.toISOString().slice(0, 16);
       document.getElementById('input-last-place').value = '';
     }
 
     document.getElementById('modal-backdrop').classList.add('open');
-    setTimeout(() => document.getElementById('input-password').focus(), 100);
   }
 
   function closeLostModal() {
@@ -697,14 +813,12 @@
   }
 
   async function submitLostReport() {
-    const password  = document.getElementById('input-password').value;
-    const isLost    = currentStatus.lost;
-    const errorEl   = document.getElementById('modal-error');
+    const isLost     = currentStatus.lost;
+    const errorEl    = document.getElementById('modal-error');
     const confirmBtn = document.getElementById('modal-confirm-btn');
 
-    if (!password) { errorEl.textContent = 'Password is required.'; return; }
-
-    const body = { password, lost: !isLost };
+    // Password is sent automatically — admin mode already verified it client-side
+    const body = { password: 'miao', lost: !isLost };
     if (!isLost) {
       body.lastSeen  = document.getElementById('input-last-seen').value;
       body.lastPlace = document.getElementById('input-last-place').value.trim();
@@ -715,13 +829,11 @@
     errorEl.textContent = '';
 
     try {
-      const res  = await fetch('/api/status', {
+      const data = await apiFetch('/api/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed.');
       currentStatus = data;
       applyStatus(data);
       closeLostModal();
@@ -732,6 +844,15 @@
       confirmBtn.disabled = false;
       confirmBtn.textContent = isLost ? 'Mark as Found' : 'Report as Lost';
     }
+  }
+
+  // ── Safe fetch helper — never crashes on non-JSON responses ──
+  async function apiFetch(url, options) {
+    const res  = await fetch(url, options);
+    let body = {};
+    try { body = await res.json(); } catch { /* server returned non-JSON */ }
+    if (!res.ok) throw new Error(body.error || `Server error (${res.status})`);
+    return body;
   }
 
   // ── Tab nav ──
@@ -785,8 +906,7 @@
     formData.append('caption', document.getElementById('caption').value.trim());
 
     try {
-      const res = await fetch('/api/encounters', { method: 'POST', body: formData });
-      if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
+      await apiFetch('/api/encounters', { method: 'POST', body: formData });
       resetForm();
       showToast('Thanks for sharing! 🐱');
       loadFeed();
@@ -827,20 +947,46 @@
         </div>`;
       return;
     }
-    feed.innerHTML = encounters.map(p => {
-      const dt  = new Date(p.created_at);
+
+    feed.innerHTML = '';
+    encounters.forEach(p => {
+      const dt   = new Date(p.created_at);
       const date = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const time = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      return `
-        <div class="post-card">
-          <div class="post-header">
-            <span class="post-name">${esc(p.name)}</span>
-            <span class="post-date">${date} · ${time}</span>
-          </div>
-          <img src="/uploads/${esc(p.filename)}" alt="Cat encounter" loading="lazy" />
-          <div class="post-caption">${esc(p.caption)}</div>
-        </div>`;
-    }).join('');
+
+      const card = document.createElement('div');
+      card.className = 'post-card';
+      card.innerHTML = `
+        <div class="post-header">
+          <span class="post-name">${esc(p.name)}</span>
+          <span class="post-date">${date} · ${time}</span>
+          ${adminMode ? `<button class="delete-btn" title="Delete post">🗑</button>` : ''}
+        </div>
+        <img src="/uploads/${esc(p.filename)}" alt="Cat encounter" loading="lazy" />
+        <div class="post-caption">${esc(p.caption)}</div>`;
+
+      if (adminMode) {
+        card.querySelector('.delete-btn').addEventListener('click', () => deletePost(p.id, card));
+      }
+
+      feed.appendChild(card);
+    });
+  }
+
+  async function deletePost(id, cardEl) {
+    if (!confirm('Delete this encounter?')) return;
+    try {
+      await apiFetch(`/api/encounters/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'miao' })
+      });
+      cardEl.style.transition = 'opacity 0.25s';
+      cardEl.style.opacity = '0';
+      setTimeout(() => cardEl.remove(), 260);
+    } catch (err) {
+      showToast('Delete failed: ' + err.message);
+    }
   }
 
   function esc(str) {
@@ -863,6 +1009,7 @@
   }
 
   // ── Init ──
+  applyAdminMode(); // restore admin button state if session was already active
   loadStatus();
   loadFeed();
 </script>

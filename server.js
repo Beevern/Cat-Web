@@ -88,6 +88,24 @@ app.post('/api/encounters', upload.single('photo'), (req, res) => {
   res.status(201).json(encounter);
 });
 
+// DELETE /api/encounters/:id — admin delete (password via query param)
+app.delete('/api/encounters/:id', (req, res) => {
+  if (req.query.pw !== PASSWORD) {
+    return res.status(401).json({ error: 'Incorrect password.' });
+  }
+  const id = Number(req.params.id);
+  const encounters = readEncounters();
+  const target = encounters.find(e => e.id === id);
+  if (!target) return res.status(404).json({ error: 'Encounter not found.' });
+
+  // Delete the image file too
+  const filePath = path.join(uploadsDir, target.filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+  writeEncounters(encounters.filter(e => e.id !== id));
+  res.json({ ok: true });
+});
+
 // GET /api/status — current lost status (public)
 app.get('/api/status', (_req, res) => {
   res.json(readStatus());
