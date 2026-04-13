@@ -639,7 +639,7 @@
         <input type="text" id="poster-name" placeholder="e.g. MiaoFan" required />
 
         <span class="field-label">+ Caption</span>
-        <textarea id="caption" rows="2" placeholder="Where did you spot Miao? What was he doing?"></textarea>
+        <textarea id="caption" rows="2" placeholder="Add some info! Where did you spot Miao? What was he doing?"></textarea>
 
         <button type="submit" class="btn-submit">Post Encounter</button>
       </form>
@@ -680,7 +680,8 @@
 
 <script>
   // ── Admin mode (lives in sessionStorage — cleared on tab close) ─────────────
-  let adminMode = sessionStorage.getItem('adminMode') === 'true';
+  let adminMode = false;
+  let adminPassword = null;
 
   function handleAdminBtn() {
     if (adminMode) {
@@ -705,22 +706,24 @@
     if (e.target === document.getElementById('admin-modal-backdrop')) closeAdminModal();
   }
 
-  function submitAdminLogin() {
+  async function submitAdminLogin() {
     const pw = document.getElementById('admin-password-input').value;
-    if (pw !== 'miao') {
-      document.getElementById('admin-modal-error').textContent = 'Incorrect password.';
-      return;
+    const errorEl = document.getElementById('admin-modal-error');
+    try {
+      await apiFetch(`/api/admin/verify?pw=${encodeURIComponent(pw)}`);
+      adminPassword = pw;
+      adminMode = true;
+      closeAdminModal();
+      applyAdminMode();
+      showToast('Admin mode enabled.');
+    } catch {
+      errorEl.textContent = 'Incorrect password.';
     }
-    adminMode = true;
-    sessionStorage.setItem('adminMode', 'true');
-    closeAdminModal();
-    applyAdminMode();
-    showToast('Admin mode enabled.');
   }
 
   function exitAdminMode() {
     adminMode = false;
-    sessionStorage.removeItem('adminMode');
+    adminPassword = null;
     applyAdminMode();
     showToast('Admin mode disabled.');
   }
@@ -817,8 +820,7 @@
     const errorEl    = document.getElementById('modal-error');
     const confirmBtn = document.getElementById('modal-confirm-btn');
 
-    // Password is sent automatically — admin mode already verified it client-side
-    const body = { password: 'miao', lost: !isLost };
+    const body = { password: adminPassword, lost: !isLost };
     if (!isLost) {
       body.lastSeen  = document.getElementById('input-last-seen').value;
       body.lastPlace = document.getElementById('input-last-place').value.trim();
@@ -976,10 +978,8 @@
   async function deletePost(id, cardEl) {
     if (!confirm('Delete this encounter?')) return;
     try {
-      await apiFetch(`/api/encounters/${id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: 'miao' })
+      await apiFetch(`/api/encounters/${id}?pw=${encodeURIComponent(adminPassword)}`, {
+        method: 'DELETE'
       });
       cardEl.style.transition = 'opacity 0.25s';
       cardEl.style.opacity = '0';
@@ -1009,7 +1009,6 @@
   }
 
   // ── Init ──
-  applyAdminMode(); // restore admin button state if session was already active
   loadStatus();
   loadFeed();
 </script>

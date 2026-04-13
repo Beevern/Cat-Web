@@ -21,6 +21,13 @@ primary_region = "sjc"
     method = "GET"
     path = "/healthz"
 
+[env]
+  DATA_DIR = "/data"
+
+[[mounts]]
+  source = "miao_data"
+  destination = "/data"
+
 [[vm]]
   cpu_kind = "shared"
   cpus = 1

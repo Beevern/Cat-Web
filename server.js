@@ -7,12 +7,15 @@ const app = express();
 const PORT = Number(process.env.PORT) || 8080;
 const HOST = '0.0.0.0';
 
+// ── Data directory (use a mounted volume in production via DATA_DIR env var) ──
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+
 // ── Uploads folder ────────────────────────────────────────────────────────────
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+const uploadsDir = path.join(DATA_DIR, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // ── JSON "database" ───────────────────────────────────────────────────────────
-const dbPath = path.join(__dirname, 'encounters.json');
+const dbPath = path.join(DATA_DIR, 'encounters.json');
 
 function readEncounters() {
   if (!fs.existsSync(dbPath)) return [];
@@ -46,8 +49,8 @@ const upload = multer({
 });
 
 // ── Lost status ───────────────────────────────────────────────────────────────
-const statusPath = path.join(__dirname, 'status.json');
-const PASSWORD = 'miao';
+const statusPath = path.join(DATA_DIR, 'status.json');
+const PASSWORD = process.env.ADMIN_PASSWORD || 'miao';
 
 function readStatus() {
   if (!fs.existsSync(statusPath)) {
@@ -70,6 +73,13 @@ app.use(express.static(__dirname));
 app.use('/uploads', express.static(uploadsDir));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.get('/api/admin/verify', (req, res) => {
+  if (req.query.pw !== PASSWORD) {
+    return res.status(401).json({ error: 'Incorrect password.' });
+  }
+  res.json({ ok: true });
+});
+
 app.get('/api/encounters', (_req, res) => {
   res.json(readEncounters());
 });
