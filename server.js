@@ -1,10 +1,11 @@
 const express = require('express');
-const multer  = require('multer');
-const path    = require('path');
-const fs      = require('fs');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
-const app  = express();
-const PORT = 3000;
+const app = express();
+const PORT = Number(process.env.PORT) || 8080;
+const HOST = '0.0.0.0';
 
 // ── Uploads folder ────────────────────────────────────────────────────────────
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -15,8 +16,11 @@ const dbPath = path.join(__dirname, 'encounters.json');
 
 function readEncounters() {
   if (!fs.existsSync(dbPath)) return [];
-  try { return JSON.parse(fs.readFileSync(dbPath, 'utf8')); }
-  catch { return []; }
+  try {
+    return JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+  } catch {
+    return [];
+  }
 }
 
 function writeEncounters(encounters) {
@@ -34,7 +38,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
+  limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(new Error('Only image files are allowed'));
@@ -43,41 +47,43 @@ const upload = multer({
 
 // ── Lost status ───────────────────────────────────────────────────────────────
 const statusPath = path.join(__dirname, 'status.json');
-const PASSWORD   = 'miao';
+const PASSWORD = 'miao';
 
 function readStatus() {
-  if (!fs.existsSync(statusPath)) return { lost: false, lastSeen: '', lastPlace: '' };
-  try { return JSON.parse(fs.readFileSync(statusPath, 'utf8')); }
-  catch { return { lost: false, lastSeen: '', lastPlace: '' }; }
+  if (!fs.existsSync(statusPath)) {
+    return { lost: false, lastSeen: '', lastPlace: '' };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+  } catch {
+    return { lost: false, lastSeen: '', lastPlace: '' };
+  }
 }
 
-function writeStatus(s) {
-  fs.writeFileSync(statusPath, JSON.stringify(s, null, 2));
+function writeStatus(status) {
+  fs.writeFileSync(statusPath, JSON.stringify(status, null, 2));
 }
 
-// ── Static files ──────────────────────────────────────────────────────────────
+// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(__dirname));
 app.use('/uploads', express.static(uploadsDir));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-
-// GET /api/encounters — newest first
 app.get('/api/encounters', (_req, res) => {
   res.json(readEncounters());
 });
 
-// POST /api/encounters — save new encounter
 app.post('/api/encounters', upload.single('photo'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'A photo is required.' });
   }
 
   const encounter = {
-    id:         Date.now(),
-    name:       (req.body.name    || '').trim() || 'Anonymous',
-    caption:    (req.body.caption || '').trim(),
-    filename:   req.file.filename,
+    id: Date.now(),
+    name: (req.body.name || '').trim() || 'Anonymous',
+    caption: (req.body.caption || '').trim(),
+    filename: req.file.filename,
     created_at: new Date().toISOString()
   };
 
@@ -88,46 +94,54 @@ app.post('/api/encounters', upload.single('photo'), (req, res) => {
   res.status(201).json(encounter);
 });
 
-// DELETE /api/encounters/:id — admin delete (password via query param)
 app.delete('/api/encounters/:id', (req, res) => {
   if (req.query.pw !== PASSWORD) {
     return res.status(401).json({ error: 'Incorrect password.' });
   }
+
   const id = Number(req.params.id);
   const encounters = readEncounters();
-  const target = encounters.find(e => e.id === id);
-  if (!target) return res.status(404).json({ error: 'Encounter not found.' });
+  const target = encounters.find((e) => e.id === id);
 
-  // Delete the image file too
+  if (!target) {
+    return res.status(404).json({ error: 'Encounter not found.' });
+  }
+
   const filePath = path.join(uploadsDir, target.filename);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
-  writeEncounters(encounters.filter(e => e.id !== id));
+  writeEncounters(encounters.filter((e) => e.id !== id));
   res.json({ ok: true });
 });
 
-// GET /api/status — current lost status (public)
 app.get('/api/status', (_req, res) => {
   res.json(readStatus());
 });
 
-// POST /api/status — set lost or found (password required)
 app.post('/api/status', (req, res) => {
   const { password, lost, lastSeen, lastPlace } = req.body;
+
   if (password !== PASSWORD) {
     return res.status(401).json({ error: 'Incorrect password.' });
   }
+
   const status = {
-    lost:      !!lost,
-    lastSeen:  (lastSeen  || '').trim(),
+    lost: !!lost,
+    lastSeen: (lastSeen || '').trim(),
     lastPlace: (lastPlace || '').trim(),
     updatedAt: new Date().toISOString()
   };
+
   writeStatus(status);
   res.json(status);
 });
 
-// ── Global error handler — always returns JSON, never HTML ───────────────────
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get('/healthz', (_req, res) => {
+  res.status(200).send('ok');
+});
+
+// ── Global error handler ──────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
   console.error(err.message);
   const status = err.status || err.statusCode || 500;
@@ -135,6 +149,6 @@ app.use((err, _req, res, _next) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`Miao's site is running → http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Miao's site is running → http://${HOST}:${PORT}`);
 });
